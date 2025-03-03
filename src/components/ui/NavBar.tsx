@@ -40,32 +40,32 @@ export function NavBar() {
             to="/" 
             className={`nav-item ${isActive("/") ? "active" : ""}`}
           >
-            Home
+            首页
           </Link>
           <Link 
             to="/dashboard" 
             className={`nav-item ${isActive("/dashboard") ? "active" : ""}`}
           >
-            Dashboard
+            仪表盘
           </Link>
           <Link 
             to="/ideas" 
             className={`nav-item ${isActive("/ideas") ? "active" : ""}`}
           >
-            My Ideas
+            我的创意
           </Link>
         </nav>
         <div className="ml-auto flex items-center space-x-4">
           <Button asChild className="hidden sm:flex">
             <Link to="/new">
               <Plus className="mr-2 h-4 w-4" />
-              New Idea
+              新创意
             </Link>
           </Button>
           <div className="rounded-full bg-secondary p-0.5 flex items-center justify-center">
             <div 
               className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-400 to-blue-600"
-              aria-label="User Profile" 
+              aria-label="用户资料" 
             />
           </div>
         </div>

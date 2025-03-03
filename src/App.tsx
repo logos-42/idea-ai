@@ -25,7 +25,7 @@ const App = () => (
           <Route path="/idea/:id" element={<IdeaDetail />} />
           <Route path="/new" element={<NewIdea />} />
           <Route path="/ideas" element={<Ideas />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          {/* 请在上面的通配符 "*" 路由之前添加所有自定义路由 */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
