@@ -24,7 +24,7 @@ export function IdeaCard({ id, title, excerpt, category, aiExpanded, date }: Ide
           </Badge>
           {aiExpanded && (
             <Badge variant="secondary" className="text-xs bg-primary/10 text-primary">
-              AI Enhanced
+              AI增强
             </Badge>
           )}
         </div>
@@ -42,7 +42,7 @@ export function IdeaCard({ id, title, excerpt, category, aiExpanded, date }: Ide
           asChild
         >
           <Link to={`/idea/${id}`}>
-            <span className="mr-1">View</span>
+            <span className="mr-1">查看</span>
             <MessageSquare className="h-3 w-3" />
           </Link>
         </Button>

@@ -7,7 +7,7 @@ export function Logo() {
       <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
         <span className="text-primary-foreground font-semibold text-sm">AI</span>
       </div>
-      <span className="font-semibold text-lg tracking-tight">IdeasLab</span>
+      <span className="font-semibold text-lg tracking-tight">创意工坊</span>
     </Link>
   );
 }
