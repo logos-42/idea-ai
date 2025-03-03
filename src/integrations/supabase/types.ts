@@ -65,6 +65,45 @@ export type Database = {
           },
         ]
       }
+      ideas: {
+        Row: {
+          ai_expanded: boolean | null
+          category: string
+          created_at: string | null
+          description: string
+          excerpt: string | null
+          id: string
+          tags: string | null
+          title: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          ai_expanded?: boolean | null
+          category: string
+          created_at?: string | null
+          description: string
+          excerpt?: string | null
+          id?: string
+          tags?: string | null
+          title: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          ai_expanded?: boolean | null
+          category?: string
+          created_at?: string | null
+          description?: string
+          excerpt?: string | null
+          id?: string
+          tags?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       market_data: {
         Row: {
           created_at: string

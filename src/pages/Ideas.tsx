@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { IdeaCard } from "@/components/idea/IdeaCard";
@@ -7,72 +7,105 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Search, SlidersHorizontal } from "lucide-react";
-
-// 模拟数据
-const allIdeas = [
-  {
-    id: "1",
-    title: "AI驱动的创意技能学习平台",
-    excerpt: "一个根据个人学习风格进行调整并为创意专业人士提供个性化内容的平台。",
-    category: "教育",
-    aiExpanded: true,
-    date: "2天前"
-  },
-  {
-    id: "2",
-    title: "可持续智能家居能源管理",
-    excerpt: "一个基于习惯、天气和电网需求优化能源使用的集成系统。",
-    category: "科技",
-    aiExpanded: true,
-    date: "5天前"
-  },
-  {
-    id: "3",
-    title: "社区心理健康支持网络",
-    excerpt: "一个连接具有相似经历的人和经过培训的主持人的同伴支持平台。",
-    category: "健康",
-    aiExpanded: false,
-    date: "1周前"
-  },
-  {
-    id: "4",
-    title: "个人财务优化应用",
-    excerpt: "一个帮助用户根据收入、支出和财务目标优化预算的应用程序。",
-    category: "商业",
-    aiExpanded: true,
-    date: "2周前"
-  },
-  {
-    id: "5",
-    title: "远程团队协作工具",
-    excerpt: "一个为远程工作者提供虚拟环境以促进协作和创意的平台。",
-    category: "商业",
-    aiExpanded: false,
-    date: "2周前"
-  },
-  {
-    id: "6",
-    title: "个性化健身指导应用",
-    excerpt: "根据用户的能力、目标和可用设备提供个性化锻炼计划的应用程序。",
-    category: "健康",
-    aiExpanded: true,
-    date: "3周前"
-  }
-];
+import { Plus, Search, SlidersHorizontal, Trash2 } from "lucide-react";
+import { fetchIdeas, deleteIdea } from "@/services/ideaService";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
+import { Idea } from "@/types/idea";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const Ideas = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState("all");
   const [sort, setSort] = useState("newest");
   const [view, setView] = useState("grid");
+  const [ideaToDelete, setIdeaToDelete] = useState<string | null>(null);
+
+  // 使用React Query加载数据
+  const { data: ideas = [], isLoading, refetch } = useQuery({
+    queryKey: ['ideas'],
+    queryFn: fetchIdeas,
+  });
+  
+  // 创建删除操作的mutation
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteIdea(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ideas'] });
+      toast({
+        title: "创意已删除",
+        description: "您的创意已成功删除。",
+      });
+    },
+    onError: (error) => {
+      console.error("删除创意失败:", error);
+      toast({
+        title: "删除失败",
+        description: "删除创意时出现错误，请重试。",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // 监听实时数据更新
+  useEffect(() => {
+    const channel = supabase
+      .channel('public:ideas')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'ideas' }, 
+        (payload) => {
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetch]);
+
+  // 根据天数计算相对日期
+  const getRelativeDate = (date: string) => {
+    const days = Math.round((new Date().getTime() - new Date(date).getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (days < 1) return "今天";
+    if (days === 1) return "昨天";
+    if (days < 7) return `${days}天前`;
+    if (days < 30) return `${Math.floor(days / 7)}周前`;
+    return `${Math.floor(days / 30)}月前`;
+  };
+
+  // 处理删除创意
+  const handleDeleteIdea = (id: string) => {
+    setIdeaToDelete(id);
+  };
+
+  const confirmDelete = () => {
+    if (ideaToDelete) {
+      deleteMutation.mutate(ideaToDelete);
+      setIdeaToDelete(null);
+    }
+  };
 
   // 过滤和排序逻辑
-  const filteredIdeas = allIdeas.filter(idea => {
+  const filteredIdeas = ideas.filter((idea: Idea) => {
     // 搜索过滤
     if (searchTerm && !idea.title.toLowerCase().includes(searchTerm.toLowerCase()) && 
-        !idea.excerpt.toLowerCase().includes(searchTerm.toLowerCase())) {
+        !idea.description.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
     
@@ -82,17 +115,31 @@ const Ideas = () => {
     }
     
     return true;
-  }).sort((a, b) => {
+  }).sort((a: Idea, b: Idea) => {
     // 排序逻辑
     if (sort === "newest") {
-      return a.date > b.date ? -1 : 1;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     } else if (sort === "oldest") {
-      return a.date < b.date ? -1 : 1;
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     } else if (sort === "alphabetical") {
       return a.title.localeCompare(b.title);
     }
     return 0;
   });
+
+  // 所有可用的分类
+  const categories = [...new Set(ideas.map((idea: Idea) => idea.category))];
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="h-8 w-8 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
+          <p className="ml-2">加载中...</p>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -128,11 +175,9 @@ const Ideas = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">所有分类</SelectItem>
-                <SelectItem value="教育">教育</SelectItem>
-                <SelectItem value="科技">科技</SelectItem>
-                <SelectItem value="健康">健康</SelectItem>
-                <SelectItem value="商业">商业</SelectItem>
-                <SelectItem value="创意">创意</SelectItem>
+                {categories.map((category: string) => (
+                  <SelectItem key={category} value={category}>{category}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             
@@ -162,8 +207,16 @@ const Ideas = () => {
           <TabsContent value="grid" className="animate-slide-up">
             {filteredIdeas.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredIdeas.map((idea) => (
-                  <IdeaCard key={idea.id} {...idea} />
+                {filteredIdeas.map((idea: Idea) => (
+                  <IdeaCard 
+                    key={idea.id} 
+                    id={idea.id} 
+                    title={idea.title} 
+                    excerpt={idea.excerpt || idea.description} 
+                    category={idea.category} 
+                    aiExpanded={idea.ai_expanded} 
+                    date={getRelativeDate(idea.created_at)} 
+                  />
                 ))}
               </div>
             ) : (
@@ -186,25 +239,56 @@ const Ideas = () => {
           <TabsContent value="list" className="animate-slide-up">
             {filteredIdeas.length > 0 ? (
               <div className="space-y-4">
-                {filteredIdeas.map((idea) => (
+                {filteredIdeas.map((idea: Idea) => (
                   <div key={idea.id} className="flex items-center border rounded-lg p-4 hover:bg-secondary/20 transition-colors">
                     <div className="flex-grow">
                       <div className="flex gap-2 mb-1">
                         <span className="text-xs px-2 py-0.5 bg-secondary rounded-full">{idea.category}</span>
-                        {idea.aiExpanded && (
+                        {idea.ai_expanded && (
                           <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">AI增强</span>
                         )}
                       </div>
                       <h3 className="font-medium">{idea.title}</h3>
-                      <p className="text-sm text-muted-foreground mt-1">{idea.date}</p>
+                      <p className="text-sm text-muted-foreground mt-1">{getRelativeDate(idea.created_at)}</p>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => navigate(`/idea/${idea.id}`)}
-                    >
-                      查看
-                    </Button>
+                    <div className="flex space-x-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => navigate(`/idea/${idea.id}`)}
+                      >
+                        查看
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-red-500 hover:text-red-700 hover:bg-red-100"
+                            onClick={() => handleDeleteIdea(idea.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>确认删除</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              您确定要删除这个创意吗？此操作无法撤销。
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>取消</AlertDialogCancel>
+                            <AlertDialogAction 
+                              onClick={confirmDelete}
+                              className="bg-red-500 hover:bg-red-600"
+                            >
+                              删除
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </div>
                 ))}
               </div>

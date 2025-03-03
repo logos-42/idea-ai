@@ -10,26 +10,48 @@ import IdeaDetail from "./pages/IdeaDetail";
 import NewIdea from "./pages/NewIdea";
 import Ideas from "./pages/Ideas";
 import NotFound from "./pages/NotFound";
+import Auth from "./pages/Auth";
+import { AuthProvider } from "./contexts/AuthContext";
+import AuthGuard from "./components/auth/AuthGuard";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/idea/:id" element={<IdeaDetail />} />
-          <Route path="/new" element={<NewIdea />} />
-          <Route path="/ideas" element={<Ideas />} />
-          {/* 请在上面的通配符 "*" 路由之前添加所有自定义路由 */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/dashboard" element={
+              <AuthGuard>
+                <Dashboard />
+              </AuthGuard>
+            } />
+            <Route path="/idea/:id" element={
+              <AuthGuard>
+                <IdeaDetail />
+              </AuthGuard>
+            } />
+            <Route path="/new" element={
+              <AuthGuard>
+                <NewIdea />
+              </AuthGuard>
+            } />
+            <Route path="/ideas" element={
+              <AuthGuard>
+                <Ideas />
+              </AuthGuard>
+            } />
+            {/* 请在上面的通配符 "*" 路由之前添加所有自定义路由 */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

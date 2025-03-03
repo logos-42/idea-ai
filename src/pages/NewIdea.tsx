@@ -10,6 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { Brain, Save } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { createIdea, updateIdea } from "@/services/ideaService";
+import { useMutation } from "@tanstack/react-query";
 
 const categories = [
   { value: "technology", label: "科技" },
@@ -24,13 +27,57 @@ const categories = [
 const NewIdea = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     category: "",
     tags: ""
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // 使用React Query的useMutation进行数据操作
+  const createIdeaMutation = useMutation({
+    mutationFn: (data: any) => createIdea(data),
+    onSuccess: () => {
+      toast({
+        title: "创意已保存",
+        description: "您的创意已成功保存。",
+      });
+      navigate("/dashboard");
+    },
+    onError: (error) => {
+      console.error("保存创意失败:", error);
+      toast({
+        title: "保存失败",
+        description: "保存创意时出现错误，请重试。",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const expandIdeaMutation = useMutation({
+    mutationFn: async (data: any) => {
+      // 首先创建创意
+      const idea = await createIdea(data);
+      // 然后标记为AI扩展
+      return await updateIdea(idea.id, { ai_expanded: true });
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "创意已保存并扩展",
+        description: "您的创意已保存并通过AI进行扩展。",
+      });
+      navigate(`/idea/${data.id}`);
+    },
+    onError: (error) => {
+      console.error("保存并扩展创意失败:", error);
+      toast({
+        title: "操作失败",
+        description: "保存并扩展创意时出现错误，请重试。",
+        variant: "destructive",
+      });
+    }
+  });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -43,32 +90,43 @@ const NewIdea = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
     
-    // 模拟提交过程
-    setTimeout(() => {
-      setIsSubmitting(false);
+    if (!user) {
       toast({
-        title: "创意已保存",
-        description: "您的创意已成功保存。",
+        title: "请先登录",
+        description: "您需要登录后才能保存创意。",
+        variant: "destructive",
       });
-      navigate("/dashboard");
-    }, 1500);
+      return;
+    }
+    
+    const ideaData = {
+      ...formData,
+      user_id: user.id
+    };
+    
+    createIdeaMutation.mutate(ideaData);
   };
 
   const handleSaveAndExpand = () => {
-    setIsSubmitting(true);
-    
-    // 模拟保存和扩展过程
-    setTimeout(() => {
-      setIsSubmitting(false);
+    if (!user) {
       toast({
-        title: "创意已保存并扩展",
-        description: "您的创意已保存并通过AI进行扩展。",
+        title: "请先登录",
+        description: "您需要登录后才能保存创意。",
+        variant: "destructive",
       });
-      navigate("/idea/1"); // 导航到模拟的创意详情页
-    }, 2000);
+      return;
+    }
+    
+    const ideaData = {
+      ...formData,
+      user_id: user.id
+    };
+    
+    expandIdeaMutation.mutate(ideaData);
   };
+
+  const isSubmitting = createIdeaMutation.isPending || expandIdeaMutation.isPending;
 
   return (
     <Layout>
@@ -161,7 +219,7 @@ const NewIdea = () => {
               type="submit"
               disabled={isSubmitting}
             >
-              {isSubmitting ? (
+              {isSubmitting && createIdeaMutation.isPending ? (
                 <>
                   <div className="h-4 w-4 border-t-2 border-r-2 border-white rounded-full animate-spin mr-2" />
                   保存中...
@@ -180,7 +238,7 @@ const NewIdea = () => {
               onClick={handleSaveAndExpand}
               disabled={isSubmitting}
             >
-              {isSubmitting ? (
+              {isSubmitting && expandIdeaMutation.isPending ? (
                 <>
                   <div className="h-4 w-4 border-t-2 border-r-2 border-white rounded-full animate-spin mr-2" />
                   处理中...
