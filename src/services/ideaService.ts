@@ -4,12 +4,41 @@ import { Idea, NewIdea } from "@/types/idea";
 
 export async function fetchIdeas(): Promise<Idea[]> {
   const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user.id;
   
-  // 确保只获取当前用户的创意
+  if (!userId) {
+    console.error("无法获取用户ID");
+    return [];
+  }
+  
+  // 首先尝试获取所有未分配用户ID的创意（针对现有数据）
+  let { data: unassignedIdeas, error: unassignedError } = await supabase
+    .from("ideas")
+    .select("*")
+    .is("user_id", null)
+    .order("created_at", { ascending: false });
+    
+  if (unassignedError) {
+    console.error("获取无主创意错误:", unassignedError);
+  }
+  
+  // 如果存在未分配的创意，将它们分配给当前用户
+  if (unassignedIdeas && unassignedIdeas.length > 0) {
+    for (const idea of unassignedIdeas) {
+      await supabase
+        .from("ideas")
+        .update({ user_id: userId })
+        .eq("id", idea.id);
+    }
+    
+    console.log(`已将${unassignedIdeas.length}个创意分配给当前用户`);
+  }
+  
+  // 然后获取当前用户的所有创意
   const { data, error } = await supabase
     .from("ideas")
     .select("*")
-    .eq("user_id", sessionData.session?.user.id)
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -22,12 +51,37 @@ export async function fetchIdeas(): Promise<Idea[]> {
 
 export async function fetchIdeaById(id: string): Promise<Idea | null> {
   const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user.id;
   
+  if (!userId) {
+    console.error("无法获取用户ID");
+    return null;
+  }
+  
+  // 先检查这个创意是否存在但没有用户ID
+  const { data: unassignedIdea, error: unassignedError } = await supabase
+    .from("ideas")
+    .select("*")
+    .eq("id", id)
+    .is("user_id", null)
+    .maybeSingle();
+    
+  if (unassignedIdea) {
+    // 如果存在未分配的创意，将其分配给当前用户
+    await supabase
+      .from("ideas")
+      .update({ user_id: userId })
+      .eq("id", id);
+      
+    console.log(`已将创意 ${id} 分配给当前用户`);
+  }
+  
+  // 然后获取创意详情
   const { data, error } = await supabase
     .from("ideas")
     .select("*")
     .eq("id", id)
-    .eq("user_id", sessionData.session?.user.id)
+    .eq("user_id", userId)
     .maybeSingle();
 
   if (error) {
