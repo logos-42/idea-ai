@@ -32,15 +32,35 @@ const Auth = () => {
 
     try {
       let error;
+      let data;
       if (isSignUp) {
         const result = await signUp(email, password);
         error = result.error;
+        data = result.data;
+        
         if (!error) {
-          toast({
-            title: "注册成功",
-            description: "请登录您的账户。注意：在实际应用中可能需要验证邮箱。",
-          });
-          setIsSignUp(false);
+          if (data?.user?.identities?.length === 0) {
+            // 用户已存在
+            toast({
+              title: "账户已存在",
+              description: "此邮箱已注册，请直接登录",
+              variant: "destructive",
+            });
+          } else if (data?.user?.confirmed_at) {
+            // 用户已验证邮箱
+            toast({
+              title: "注册成功",
+              description: "您的账户已创建，请登录",
+            });
+            setIsSignUp(false);
+          } else {
+            // 用户注册成功，但需要验证邮箱
+            toast({
+              title: "注册成功",
+              description: "请检查您的邮箱以验证账户。如果您在开发环境中，可以在Supabase控制台中禁用邮箱验证。",
+            });
+            setIsSignUp(false);
+          }
         }
       } else {
         const result = await signIn(email, password);
