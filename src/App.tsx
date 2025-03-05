@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import IdeaDetail from "./pages/IdeaDetail";
 import NewIdea from "./pages/NewIdea";
+import EditIdea from "./pages/EditIdea";
 import Ideas from "./pages/Ideas";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
@@ -34,6 +35,11 @@ const App = () => (
             <Route path="/idea/:id" element={
               <AuthGuard>
                 <IdeaDetail />
+              </AuthGuard>
+            } />
+            <Route path="/edit/:id" element={
+              <AuthGuard>
+                <EditIdea />
               </AuthGuard>
             } />
             <Route path="/new" element={

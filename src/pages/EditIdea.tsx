@@ -1,6 +1,6 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,10 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { Brain, Save } from "lucide-react";
+import { Save, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { createIdea, updateIdea } from "@/services/ideaService";
-import { useMutation } from "@tanstack/react-query";
+import { fetchIdeaById, updateIdea } from "@/services/ideaService";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { SpeechInput } from "@/components/SpeechInput";
 
 const categories = [
@@ -25,7 +25,8 @@ const categories = [
   { value: "other", label: "其他" }
 ];
 
-const NewIdea = () => {
+const EditIdea = () => {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -36,45 +37,36 @@ const NewIdea = () => {
     tags: ""
   });
   
-  // 使用React Query的useMutation进行数据操作
-  const createIdeaMutation = useMutation({
-    mutationFn: (data: any) => createIdea(data),
-    onSuccess: () => {
-      toast({
-        title: "创意已保存",
-        description: "您的创意已成功保存。",
-      });
-      navigate("/dashboard");
-    },
-    onError: (error) => {
-      console.error("保存创意失败:", error);
-      toast({
-        title: "保存失败",
-        description: "保存创意时出现错误，请重试。",
-        variant: "destructive",
-      });
+  const { data: idea, isLoading } = useQuery({
+    queryKey: ['idea', id],
+    queryFn: () => fetchIdeaById(id!),
+    enabled: !!id,
+    onSuccess: (data) => {
+      if (data) {
+        setFormData({
+          title: data.title,
+          description: data.description,
+          category: data.category,
+          tags: data.tags || ""
+        });
+      }
     }
   });
 
-  const expandIdeaMutation = useMutation({
-    mutationFn: async (data: any) => {
-      // 首先创建创意
-      const idea = await createIdea(data);
-      // 然后标记为AI扩展
-      return await updateIdea(idea.id, { ai_expanded: true });
-    },
-    onSuccess: (data) => {
+  const updateIdeaMutation = useMutation({
+    mutationFn: (data: any) => updateIdea(id!, data),
+    onSuccess: () => {
       toast({
-        title: "创意已保存并扩展",
-        description: "您的创意已保存并通过AI进行扩展。",
+        title: "创意已更新",
+        description: "您的创意已成功更新。",
       });
-      navigate(`/idea/${data.id}`);
+      navigate(`/idea/${id}`);
     },
     onError: (error) => {
-      console.error("保存并扩展创意失败:", error);
+      console.error("更新创意失败:", error);
       toast({
-        title: "操作失败",
-        description: "保存并扩展创意时出现错误，请重试。",
+        title: "更新失败",
+        description: "更新创意时出现错误，请重试。",
         variant: "destructive",
       });
     }
@@ -88,7 +80,7 @@ const NewIdea = () => {
   const handleCategoryChange = (value: string) => {
     setFormData(prev => ({ ...prev, category: value }));
   };
-  
+
   const handleSpeechInput = (field: string, text: string) => {
     setFormData(prev => ({ ...prev, [field]: text }));
   };
@@ -99,7 +91,7 @@ const NewIdea = () => {
     if (!user) {
       toast({
         title: "请先登录",
-        description: "您需要登录后才能保存创意。",
+        description: "您需要登录后才能更新创意。",
         variant: "destructive",
       });
       return;
@@ -110,35 +102,36 @@ const NewIdea = () => {
       user_id: user.id
     };
     
-    createIdeaMutation.mutate(ideaData);
+    updateIdeaMutation.mutate(ideaData);
   };
 
-  const handleSaveAndExpand = () => {
-    if (!user) {
-      toast({
-        title: "请先登录",
-        description: "您需要登录后才能保存创意。",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const ideaData = {
-      ...formData,
-      user_id: user.id
-    };
-    
-    expandIdeaMutation.mutate(ideaData);
-  };
-
-  const isSubmitting = createIdeaMutation.isPending || expandIdeaMutation.isPending;
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="h-8 w-8 border-t-2 border-b-2 border-blue-500 rounded-full animate-spin"></div>
+          <p className="ml-2">加载中...</p>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
       <div className="max-w-3xl mx-auto animate-fade-in">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold tracking-tight">新创意</h1>
-          <p className="text-muted-foreground mt-2">记录您的想法，让它成长为一个完整的概念。</p>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => navigate(`/idea/${id}`)}
+            className="mb-4"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            返回详情
+          </Button>
+          
+          <h1 className="text-3xl font-bold tracking-tight">编辑创意</h1>
+          <p className="text-muted-foreground mt-2">修改您的创意详情。</p>
         </div>
         
         <form onSubmit={handleSubmit}>
@@ -146,7 +139,7 @@ const NewIdea = () => {
             <CardHeader>
               <CardTitle>创意详情</CardTitle>
               <CardDescription>
-                填写您的创意的基本信息。越详细越好，但简单的想法也可以后续扩展。
+                修改您的创意的基本信息。
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -183,7 +176,7 @@ const NewIdea = () => {
                     className="flex-1"
                   />
                   <SpeechInput 
-                    onSpeechInput={(text) => handleSpeechInput("description", text)}
+                    onSpeechInput={(text) => handleSpeechInput("description", text)} 
                     currentText={formData.description}
                   />
                 </div>
@@ -232,20 +225,20 @@ const NewIdea = () => {
             </CardContent>
           </Card>
           
-          <div className="flex flex-col sm:flex-row gap-3 justify-end">
+          <div className="flex justify-end gap-3">
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate("/dashboard")}
-              disabled={isSubmitting}
+              onClick={() => navigate(`/idea/${id}`)}
+              disabled={updateIdeaMutation.isPending}
             >
               取消
             </Button>
             <Button
               type="submit"
-              disabled={isSubmitting}
+              disabled={updateIdeaMutation.isPending}
             >
-              {isSubmitting && createIdeaMutation.isPending ? (
+              {updateIdeaMutation.isPending ? (
                 <>
                   <div className="h-4 w-4 border-t-2 border-r-2 border-white rounded-full animate-spin mr-2" />
                   保存中...
@@ -257,25 +250,6 @@ const NewIdea = () => {
                 </>
               )}
             </Button>
-            <Button
-              type="button"
-              variant="default"
-              className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
-              onClick={handleSaveAndExpand}
-              disabled={isSubmitting}
-            >
-              {isSubmitting && expandIdeaMutation.isPending ? (
-                <>
-                  <div className="h-4 w-4 border-t-2 border-r-2 border-white rounded-full animate-spin mr-2" />
-                  处理中...
-                </>
-              ) : (
-                <>
-                  <Brain className="mr-2 h-4 w-4" />
-                  保存并扩展
-                </>
-              )}
-            </Button>
           </div>
         </form>
       </div>
@@ -283,4 +257,4 @@ const NewIdea = () => {
   );
 };
 
-export default NewIdea;
+export default EditIdea;
