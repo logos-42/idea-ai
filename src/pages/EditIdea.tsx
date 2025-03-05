@@ -40,18 +40,20 @@ const EditIdea = () => {
   const { data: idea, isLoading } = useQuery({
     queryKey: ['idea', id],
     queryFn: () => fetchIdeaById(id!),
-    enabled: !!id,
-    onSuccess: (data) => {
-      if (data) {
-        setFormData({
-          title: data.title,
-          description: data.description,
-          category: data.category,
-          tags: data.tags || ""
-        });
-      }
-    }
+    enabled: !!id
   });
+  
+  // Use useEffect to update form data when idea is loaded
+  useEffect(() => {
+    if (idea) {
+      setFormData({
+        title: idea.title,
+        description: idea.description,
+        category: idea.category,
+        tags: idea.tags || ""
+      });
+    }
+  }, [idea]);
 
   const updateIdeaMutation = useMutation({
     mutationFn: (data: any) => updateIdea(id!, data),
