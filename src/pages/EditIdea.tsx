@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { Save, ArrowLeft } from "lucide-react";
+import { Save, ArrowLeft, Brain } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchIdeaById, updateIdea } from "@/services/ideaService";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -74,6 +74,28 @@ const EditIdea = () => {
     }
   });
 
+  const expandIdeaMutation = useMutation({
+    mutationFn: async (data: any) => {
+      // 标记为AI扩展并更新
+      return await updateIdea(id!, { ...data, ai_expanded: true });
+    },
+    onSuccess: () => {
+      toast({
+        title: "创意已更新并扩展",
+        description: "您的创意已更新并通过AI进行扩展。",
+      });
+      navigate(`/idea/${id}`);
+    },
+    onError: (error) => {
+      console.error("更新并扩展创意失败:", error);
+      toast({
+        title: "操作失败",
+        description: "更新并扩展创意时出现错误，请重试。",
+        variant: "destructive",
+      });
+    }
+  });
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -106,6 +128,26 @@ const EditIdea = () => {
     
     updateIdeaMutation.mutate(ideaData);
   };
+
+  const handleSaveAndExpand = () => {
+    if (!user) {
+      toast({
+        title: "请先登录",
+        description: "您需要登录后才能更新创意。",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const ideaData = {
+      ...formData,
+      user_id: user.id
+    };
+    
+    expandIdeaMutation.mutate(ideaData);
+  };
+
+  const isSubmitting = updateIdeaMutation.isPending || expandIdeaMutation.isPending;
 
   if (isLoading) {
     return (
@@ -227,18 +269,18 @@ const EditIdea = () => {
             </CardContent>
           </Card>
           
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 justify-end">
             <Button
               type="button"
               variant="outline"
               onClick={() => navigate(`/idea/${id}`)}
-              disabled={updateIdeaMutation.isPending}
+              disabled={isSubmitting}
             >
               取消
             </Button>
             <Button
               type="submit"
-              disabled={updateIdeaMutation.isPending}
+              disabled={isSubmitting}
             >
               {updateIdeaMutation.isPending ? (
                 <>
@@ -249,6 +291,25 @@ const EditIdea = () => {
                 <>
                   <Save className="mr-2 h-4 w-4" />
                   保存
+                </>
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+              onClick={handleSaveAndExpand}
+              disabled={isSubmitting}
+            >
+              {expandIdeaMutation.isPending ? (
+                <>
+                  <div className="h-4 w-4 border-t-2 border-r-2 border-white rounded-full animate-spin mr-2" />
+                  处理中...
+                </>
+              ) : (
+                <>
+                  <Brain className="mr-2 h-4 w-4" />
+                  保存并扩展
                 </>
               )}
             </Button>
